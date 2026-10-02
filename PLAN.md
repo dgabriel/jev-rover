@@ -130,6 +130,11 @@ intellectual payload but not required for a working demo.
 
 ## Phase 0 — Procurement + API access
 
+**Status: DONE 2026-10-02.** Pi 5 1GB in hand + PiCar-X ordered/en route;
+first pinned live call completed (`typesafe/jev-1.13-20260917` — ADVANCE
+0.95 / conf 0.93 on the tie-breaker scene, risk Noul 0.88 vs 0.35 floor,
+$0.000025/call, contract holds).
+
 **Difficulty:** trivial to execute, long-lead. Do first.
 
 Hardware (revised 2026-06 — kit-based; the DIY mix-and-match route
