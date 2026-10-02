@@ -142,14 +142,21 @@ sold out there too):
   driver + power), 2×18650 batteries **included**, 5MP camera on a
   pan/tilt head, ultrasonic sensor, onboard speaker + mic (earned in
   Phase 9 — the rover talks), line sensors. **Pi NOT included.**
-- **Raspberry Pi 5 8GB** (Micro Center Brooklyn, SKU 635649, $79.99,
-  in stock, in-store pickup only). Same shelf: 16GB $99.99, Pi 4 4GB
-  ≈$55. Skip Zero-class boards — the thin client deserves headroom.
+- **Raspberry Pi 5 1GB** (Micro Center Brooklyn, $44.99, in-store
+  pickup only). 2026 RAM-crunch pricing makes every bigger variant bad
+  value for this job: 2GB $79.99, 4GB $109.99 and out of stock, 16GB
+  $279.99. RAM is the only difference between Pi 5 variants — same
+  CPU, camera pipeline, I/O — and the thin client (OS Lite + FastAPI +
+  picamera2 + robot_hat) idles under ~400MB. Conditions: Pi OS Lite
+  64-bit, NO desktop/EzBlock/cloud demo stack, swap file during
+  package installs, all CV/LLM/TTS stays on the laptop (already the
+  architecture). If the 1GB is gone: 2GB; never the 4GB at these
+  prices.
 - 32GB microSD (~$9) + official 27W PSU (~$12) for bench dev — on the
   rover the Robot HAT powers the Pi from the 18650 pack. The "never
   power motors from the Pi's own rail" rule survives: one pack, but
   through the HAT's regulation.
-- Total ≈ **$180**: one Amazon order + one MC trip, zero scrounging.
+- Total ≈ **$145**: one Amazon order + one MC trip, zero scrounging.
 
 Fallbacks if the PiCar-X sells out: Freenove 4WD Smart Car ($69.95 +
 ~$18 for 18650s/charger — best docs, differential drive matches sim
@@ -248,8 +255,8 @@ data, with the measurement notes saved (they're demo material).
 
 **Difficulty:** medium. Fixed order, isolated scripts first:
 
-1. Pi headless setup: Imager with wifi creds + ssh preloaded;
-   `jev-rover.local` via mDNS.
+1. Pi headless setup: Pi OS Lite 64-bit (no desktop — 1GB board),
+   Imager with wifi creds + ssh preloaded; `jev-rover.local` via mDNS.
 2. Robot HAT + drivetrain: forward/back and steering arcs. PiCar-X
    has a steering servo, not differential drive — TURN_* actions are
    arcs, not spins; calibrate against sim step semantics before
