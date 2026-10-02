@@ -13,7 +13,7 @@ See README.md for the concept.
   text**. Observed latencies are tens-to-hundreds of ms; pricing is input
   tokens only (~$0.042/Mtok, output free).
 - **Not deterministic.** Identical calls wobble (a Noul has been observed
-  drifting 0.43 → 0.53 across 15 repeats). Pin `jev-1.13.0`, log
+  drifting 0.43 → 0.53 across 15 repeats). Pin `typesafe/jev-1.13`, log
   `response.model`, and treat repeatability as something we measure, not
   assume.
 - **Confidence is not calibration.** Community reports show high
@@ -171,10 +171,17 @@ entirely.
 
 Access:
 
-- TypeSafe API key (console.typesafe.ai). Note: **new signups get no
-  free credits — the first call is billed.** It's ~$0.042/Mtok input,
-  so pocket change, but don't be surprised at the checkout page.
-  Alternative route: OpenRouter (`typesafe/jev-1.13`).
+- **Reuse the OpenRouter key from cosmic-oracle** — no new signup
+  needed. Verified notes live in `../cosmic-oracle/docs/jev-openrouter.md`
+  (checked 2026-09-26 against live docs): endpoint
+  `POST https://openrouter.ai/api/v1/systemone`, shapes, error codes.
+  Its `src/oracle-jev.ts` + `worker/handler.ts` are the reference
+  implementations to port to Python: Noul/Choice/Score parsing,
+  `score/(levels-1)` normalization, non-finite-probability validation,
+  402/429/5xx retry policy, spend logging via `usage.cost`. (All
+  questions in one request are answered in parallel, blind to each
+  other — exactly our batched action+risk contract.) TypeSafe console
+  key stays a documented fallback only.
 - Optional, for offline fallback: download an open local decision model
   (laya, or a ~2B "decider" checkpoint) that answers the same typed
   contract. Replicas compute `confidence` differently — thresholds must
@@ -192,7 +199,7 @@ literal reading are where the time goes.
   cells. Seeded and repeatable.
 - Perception adapter: sim state → observation JSON.
 - Decision client: batched `action` Choice + `risk` Noul per cycle,
-  model pinned to `jev-1.13.0`, `response.model` and full probabilities
+  model pinned to `typesafe/jev-1.13`, `response.model` and full probabilities
   logged.
 - Minimal gate: confidence below a provisional τ → HALT ("thinking").
   Real τ comes from Phase 2 data.
@@ -378,7 +385,7 @@ never endanger the main course.
 | Parts late | Phase 0 first; sim covers everything until they land |
 | Jev non-determinism | pinned version, logged distributions, invariants in code, wobble measured in Phase 2 |
 | Jev overconfidence | τ from our own logs; envelope vetoes; low-confidence → HALT is the minimal cascade |
-| No free API credits surprise | Phase 0 access step; OpenRouter route documented |
+| OpenRouter 402 / credits exhausted | key shared with cosmic-oracle (same spend discipline: log `usage.cost`); Phase 5 fallback ladder covers |
 | API/wifi dies mid-demo | local open model → mock mode → recorded video (ordered fallback) |
 | Motor brownout | kit HAT feeds Pi + motors from one 18650 pack; load-test in Phase 4 |
 | YOLO flags everything/nothing | area threshold; blue-cap fallback |
