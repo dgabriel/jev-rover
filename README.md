@@ -1,8 +1,10 @@
 # Jev Rover
 
-**Jev Rover** is a tiny autonomous rover experiment built around a simple question:
+**Jev Rover** is a tiny autonomous rover experiment built around a simple
+question:
 
-> What happens if we replace a hard-coded behavioral state machine with a constrained language-model decision layer?
+> What happens if we replace a hard-coded behavioral state machine with a
+> typed, probabilistic decision model?
 
 The rover follows the classic robotics loop:
 
@@ -19,31 +21,54 @@ else:
     move forward
 ```
 
-Jev Rover instead converts physical sensor/camera input into a small semantic description of the world, combines that with a remotely configurable mission, and asks **Jev** to choose one action from a tightly constrained set.
+Jev Rover instead converts physical sensor/camera input into a small
+semantic description of the world, combines that with a remotely
+configurable mission, and asks **Jev** — TypeSafe AI's "System One" typed
+decision model ([docs](https://docs.typesafe.ai),
+[community wiki](https://jevwiki.ai)) — to choose one action from a
+tightly constrained set.
+
+Jev never generates text. It answers **typed questions** — Choices,
+Scores, Nouls — returning an answer plus per-option probabilities and a
+confidence score, typically in tens of milliseconds, for fractions of a
+penny. Think of it less as a brain and more as a set of very fast,
+English-steerable reflexes.
 
 ## Architecture
 
 ```text
 Camera / sensors
        ↓
-   Perception
+   Perception  (color masks · YOLO · ultrasonic · QR*)
        ↓
 Normalized observation
        ↓
 Current mission ← Remote Mission Control
        ↓
-      Jev
-       ↓
-Constrained decision
+      Jev  ──confidence──→ low? → generative LLM escalation
+       ↓                        → narration tier (Jev can't speak)
+Typed decision (action + probabilities + confidence)
        ↓
  Safety envelope
        ↓
  Motor control
 ```
 
-Jev itself is text-in/text-out. It does not directly process camera frames or control motors.
+\* strictly dessert, see PLAN.md.
 
-The perception layer converts camera input into structured information such as:
+A single decision cycle is one batched `systemone` request:
+
+- **state**: the observation below + the current mission text
+- **questions**: an `action` **Choice** over five options whose criteria
+  come from the mission, and a `risk` **Noul** ("is the rover one move
+  from collision?")
+
+Jev is text-in/typed-out. It does not process camera frames, does not
+control motors, and cannot be talked into emitting prose — because it
+structurally has none.
+
+The perception layer converts camera/sensor input into structured
+information such as:
 
 ```json
 {
@@ -51,13 +76,15 @@ The perception layer converts camera input into structured information such as:
   "waterLeft": true,
   "waterAhead": false,
   "waterRight": false,
+  "bottleVisible": true,
+  "bottleAhead": true,
   "pathLeftBlocked": false,
   "pathAheadBlocked": true,
   "pathRightBlocked": false
 }
 ```
 
-Jev receives that observation plus the current mission and may choose only:
+Jev's action Choice may select only:
 
 ```text
 ADVANCE
@@ -75,126 +102,118 @@ The Mars-rover-inspired default mission is:
 - Avoid obstacles.
 - Stop when a stop sign is visible.
 - Investigate possible evidence of water.
-- Treat blue objects or regions as simple water candidates.
-- Later, allow a vision system to recognize actual water rather than relying solely on color.
+- Treat blue objects or regions as simple water candidates, and anything
+  that looks like a bottle (COCO literally has a "bottle" class) as a
+  water *container* candidate.
 
 The stop sign is intentionally absurd in a Mars context.
 
 ## Why use Jev instead of a state machine?
 
-The goal is **not** to use an LLM where a few `if` statements would work better.
+Honest answer for this rover's daily life: **a dozen `if` statements
+would usually win.** Fixed missions over a small observation space are
+very rule-able, and this project measures that instead of denying it
+(see the head-to-head in PLAN.md).
 
-Jev becomes useful when decisions involve:
+Two things survive scrutiny:
 
-- competing goals
-- ambiguous perception
-- uncertain observations
-- previously unseen combinations of conditions
-- semantic descriptions such as “possibly water” or “narrow but navigable”
-- missions that change at runtime
-
-For example:
+1. **The policy becomes runtime-editable English.** A state machine's
+   mission is compiled into rules. Here the mission is the *criteria
+   text of the decision question* — a stranger can rewrite it from a
+   phone while the rover drives, including missions nobody anticipated at
+   build time. No redeploy, no rules engine.
+2. **Judgment under ambiguity with a calibrated escape hatch.**
 
 ```text
 MISSION:
 Investigate possible water, but prefer safer routes.
 
 OBSERVATION:
-Possible water detected to the right.
-Right route is narrow.
-Forward route is clear.
-No stop sign detected.
+Possible water to the right. Right route narrow. Forward clear.
 ```
 
-A traditional state machine requires an explicit rule for that combination.
+Jev returns a probability distribution over the five actions — you can
+*watch it hesitate*. And when confidence drops below a tuned threshold,
+control escalates to a generative LLM that answers the same Choice. Fast
+reflexes where they suffice, expensive reasoning only where needed —
+published as the REFLEX architecture
+([arXiv 2609.26532](https://arxiv.org/abs/2609.26532)), whose honest
+limits ("the hard decision is usually *whether* to act, and cheap tiers
+win when routing is easy") we take as design constraints.
 
-Jev can reason from the mission and observation and select one of the permitted actions.
+The design principle:
 
-The design principle is:
-
-> **Use deterministic code for perception plumbing, motor control, and safety. Use Jev for judgment under ambiguity.**
+> **Deterministic code owns perception plumbing, motor control, and
+> safety. Jev owns fast typed judgment. Generative models own rare
+> escalation and all narration.**
 
 ## Remote Mission Control
 
-The Raspberry Pi will expose a tiny local web interface, likely reachable as something similar to:
-
-```text
-http://jev-rover.local
-```
-
-From a phone or laptop, an operator can change the rover mission while it is running.
-
-For example, the mission could change from:
-
-```text
-Search for possible water.
-Investigate blue objects.
-Avoid collisions.
-Continue exploring otherwise.
-```
-
-to:
-
-```text
-Explore cautiously.
-Ignore weak water candidates.
-Prefer large open spaces.
-Halt when encountering unfamiliar objects.
-```
-
-The rover should change behavior on its next decision cycle without changing or redeploying code.
-
-This runtime retasking is one of the central demonstrations of Jev Rover.
+The brain runs on a laptop; the rover is a thin client. A tiny local web
+interface (something like `http://jev-rover.local`) edits the mission
+live. The mission becomes the question criteria, so the rover's behavior
+changes on its next decision cycle without touching code. This runtime
+retasking is one of the central demonstrations of Jev Rover.
 
 ## Safety
 
-Jev does **not** receive unrestricted motor control.
-
-Hard-coded safety logic sits between Jev and the motors.
-
-Examples:
-
-- prohibit forward movement when an obstacle is extremely close
-- enforce short movement durations
-- automatically halt if the decision loop fails
-- restrict Jev to the five permitted commands
-
-So Jev controls **behavioral intent**, while deterministic software controls what the hardware is physically allowed to do.
+- Jev's output is a five-way Choice; nothing else reaches the motors.
+- Deterministic safety logic sits between decisions and motors on **both**
+  sides of the wifi: the brain vetoes actions that contradict hard
+  observation facts, and the rover itself enforces bounded timed bursts,
+  an ultrasonic floor check, and a dead-man's switch that halts the robot
+  if the brain goes silent.
+- Jev is never the sole safety control — this is also the vendor's own
+  guidance.
 
 ## Development Plan
 
-Development starts entirely in simulation.
+Development starts entirely in simulation, against the same decision
+interface the physical rover will use. Once behavior is useful in
+simulation, the brain is pointed at the hardware unchanged:
 
-The simulator provides synthetic perception and allows testing different missions, obstacles, stop signs, blue objects, and water candidates.
+- Raspberry Pi (thin client: `/sense`, `/frame`, `/act`)
+- USB webcam + trivial CV (HSV color masks; pretrained YOLO for bottles)
+- HC-SR04 ultrasonic for obstacle truth
+- Motor driver + two-wheel differential-drive chassis
 
-Once behavior is useful in simulation, the same normalized observation and decision interfaces will be connected to:
-
-- Raspberry Pi
-- camera
-- simple computer vision
-- motor driver
-- two-wheel differential-drive chassis
-
-The intent is to keep the physical rover extremely small and inexpensive.
+The physical rover stays extremely small and inexpensive.
+**Full phased plan, shopping list, and fallback ladders: [PLAN.md](PLAN.md).**
 
 ## Repository
 
 `dgabriel/jev-rover`
 
-Planned structure:
-
 ```text
 jev-rover/
 ├── simulator/
 ├── src/
-│   ├── perception
-│   ├── decision
-│   ├── mission
-│   └── safety
+│   ├── perception/    # color masks, YOLO, ultrasonic
+│   ├── decision/      # Jev client, typed questions, confidence gate
+│   ├── cascade/       # escalation + narration tiers
+│   ├── mission/
+│   └── safety/
 ├── mission-control/
-├── rover/
+├── rover/             # Pi thin client
 ├── tests/
+├── PLAN.md
 └── README.md
 ```
 
-The most important architectural requirement is that the **simulator and physical rover use the same Jev decision interface**.read
+The most important architectural requirement is that the **simulator and
+physical rover use the same decision interface**.
+
+## References & prior art
+
+- [TypeSafe AI docs](https://docs.typesafe.ai) · [jevwiki.ai](https://jevwiki.ai) —
+  what Jev is, and how (not) to build with it
+- [REFLEX: Efficient Selective Control in LLM Agents](https://arxiv.org/abs/2609.26532) —
+  the confidence-gated cascade, with honest negative results
+- [jev-gym](https://pyshine.com/Jev-Gym-A-System-One-Decision-Agent-Controls-Any-Gymnasium-Env/) —
+  one typed decision contract across 8 Gymnasium environments, and the
+  probability-bar UI we're imitating
+- [Made with Jev: dual-arm robot](https://madewithjev.com/builds/dual-arm-robot) —
+  decisions to Jev, IK and physics to code
+
+"Jev drives a robot" is a genre, not a first. This one is small, honest,
+and in a room with you.
