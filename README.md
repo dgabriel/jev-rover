@@ -63,6 +63,16 @@ A single decision cycle is one batched `systemone` request:
   come from the mission, and a `risk` **Noul** ("is the rover one move
   from collision?")
 
+Calls go to the **OpenRouter** System One endpoint, model pinned to
+`typesafe/jev-1.13` (the dated build in each response is logged — the
+Phase-8 confidence calibration depends on pinned weights, not floats).
+The API key is shared with this project's sibling,
+[cosmic-jev](https://github.com/dgabriel/cosmic-jev) (checked out locally
+as `cosmic-oracle`) — its `docs/jev-openrouter.md` is the
+verified request/response reference, and its client and Worker are the
+reference implementations being ported to Python. TypeSafe's direct
+console key remains a documented fallback.
+
 Jev is text-in/typed-out. It does not process camera frames, does not
 control motors, and cannot be talked into emitting prose — because it
 structurally has none.
@@ -72,6 +82,7 @@ information such as:
 
 ```json
 {
+  "distanceAheadCm": 30,
   "stopSignVisible": false,
   "waterLeft": true,
   "waterAhead": false,
@@ -172,15 +183,32 @@ Development starts entirely in simulation, against the same decision
 interface the physical rover will use. Once behavior is useful in
 simulation, the brain is pointed at the hardware unchanged:
 
-- SunFounder PiCar-X as the platform — chassis, drive, power, pan/tilt
-  camera, ultrasonic, and a speaker in one box — with a Raspberry Pi 5
-  as the thin client (`/sense`, `/frame`, `/act`)
+- SunFounder **PiCar-X** as the platform — chassis, drive, 18650s +
+  charger, pan/tilt 5MP camera, ultrasonic, and a speaker + mic in one
+  $90 box — with a Raspberry Pi 5 **1GB** (~$45; the thin client idles
+  under ~400MB, and everything RAM-hungry — YOLO, LLM escalation, TTS —
+  stays on the laptop) running `/sense`, `/frame`, `/act`
 - Kit camera + trivial CV (HSV color masks; pretrained YOLO for bottles)
 - Ultrasonic on the pan/tilt head for obstacle truth
 
-The physical rover stays extremely small, inexpensive, and
-one-box-procured.
+The physical rover stays extremely small, inexpensive (~$145 all-in),
+and one-box-procured.
 **Full phased plan, shopping list, and fallback ladders: [PLAN.md](PLAN.md).**
+
+## Quickstart
+
+**Status:** Phase 0 — hardware ordered (`SunFounder PiCar-X`, Pi 5 1GB),
+Jev route established. The one live artifact is the Phase 0 acceptance
+test, which fires the real batched decision contract at the demo
+tie-breaker scene and validates the response shape:
+
+```bash
+export OPENROUTER_API_KEY=...     # same key as cosmic-oracle's Worker
+uv run scripts/jev_smoke.py       # ~$0.00002/call; logs raw JSON to logs/
+```
+
+Every raw call lands in `logs/jev-calls.jsonl` — that file becomes the
+τ-calibration dataset for the Phase 8 confidence cascade.
 
 ## Repository
 
@@ -188,7 +216,9 @@ one-box-procured.
 
 ```text
 jev-rover/
-├── simulator/
+├── scripts/
+│   └── jev_smoke.py   # ✓ exists: Phase 0 acceptance test for the Jev route
+├── simulator/         # Phase 1: seeded grid world, same decision interface
 ├── src/
 │   ├── perception/    # color masks, YOLO, ultrasonic
 │   ├── decision/      # Jev client, typed questions, confidence gate
@@ -197,10 +227,14 @@ jev-rover/
 │   └── safety/
 ├── mission-control/
 ├── rover/             # Pi thin client
+├── logs/              # runtime-created; jev-calls.jsonl = τ data
 ├── tests/
 ├── PLAN.md
 └── README.md
 ```
+
+(Only `scripts/`, `PLAN.md`, and this file exist today — the rest grows
+in phase order. See PLAN.md.)
 
 The most important architectural requirement is that the **simulator and
 physical rover use the same decision interface**.
