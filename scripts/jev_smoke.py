@@ -33,7 +33,7 @@ from pathlib import Path
 import httpx
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from jevrover.decision.openrouter import ENDPOINT, MODEL, build_questions
+from jevrover.decision.openrouter import ENDPOINT, MODEL, build_questions, find_api_key
 from jevrover.decision.types import PERMITTED_ACTIONS
 
 LOG_FILE = Path(__file__).resolve().parent.parent / "logs" / "jev-calls.jsonl"
@@ -140,7 +140,7 @@ def validate(body: dict, data: dict) -> list[str]:
 
 def main() -> None:
     body = {"model": MODEL, "state": STATE, "questions": QUESTIONS}
-    api_key = os.environ.get("OPENROUTER_API_KEY", "").strip()
+    api_key = find_api_key()
 
     if "--no-send" in sys.argv or not api_key:
         print("Request body that WOULD be sent:\n")

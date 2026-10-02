@@ -25,6 +25,24 @@ MODEL = "typesafe/jev-1.13"  # pinned release; aliases float — see PLAN.md
 TRANSIENT = {429, 500, 502, 503, 524, 529}
 
 
+def find_api_key() -> str:
+    """OPENROUTER_API_KEY from the environment, else <repo>/.env (gitignored).
+
+    One key, shared with cosmic-oracle, read once here — nowhere in the repo
+    should echo it, and chat is not a secrets store.
+    """
+    key = os.environ.get("OPENROUTER_API_KEY", "").strip()
+    if key:
+        return key
+    env_file = Path(__file__).resolve().parents[2] / ".env"
+    if env_file.exists():
+        for line in env_file.read_text().splitlines():
+            line = line.strip()
+            if line and not line.startswith("#") and line.startswith("OPENROUTER_API_KEY="):
+                return line.split("=", 1)[1].strip().strip('"').strip("'")
+    return ""
+
+
 def build_questions() -> dict:
     """THE decision contract. Wording is load-bearing: the Phase 8
     calibration data all assumes this exact contract. Change it → recalibrate."""
@@ -63,10 +81,10 @@ class OpenRouterDecider:
         min_interval_s: float = 0.8,  # rate-limit politeness, Phase 2
         log_path: str | Path = "logs/jev-calls.jsonl",
     ):
-        self.api_key = (api_key or os.environ.get("OPENROUTER_API_KEY", "")).strip()
+        self.api_key = (api_key or find_api_key()).strip()
         if not self.api_key:
             raise RuntimeError(
-                "OPENROUTER_API_KEY not set — same key as cosmic-oracle's Worker"
+                "OPENROUTER_API_KEY not in env or .env — same key as cosmic-oracle's Worker"
             )
         self.model = model
         self.min_interval_s = min_interval_s
