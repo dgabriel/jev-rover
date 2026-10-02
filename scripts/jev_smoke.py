@@ -27,10 +27,15 @@ import sys
 import time
 from pathlib import Path
 
+import json, os, sys, time
+from pathlib import Path
+
 import httpx
 
-ENDPOINT = "https://openrouter.ai/api/v1/systemone"
-MODEL = "typesafe/jev-1.13"  # pinned release; *-latest aliases float, see PLAN.md
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from jevrover.decision.openrouter import ENDPOINT, MODEL, build_questions
+from jevrover.decision.types import PERMITTED_ACTIONS
+
 LOG_FILE = Path(__file__).resolve().parent.parent / "logs" / "jev-calls.jsonl"
 
 # The scripted demo tie-breaker scene: water on the right, a bottle ahead,
@@ -55,31 +60,9 @@ STATE = {
     },
 }
 
-PERMITTED_ACTIONS = ["ADVANCE", "TURN_LEFT", "TURN_RIGHT", "RETREAT", "HALT"]
+PERMITTED_ACTIONS = list(PERMITTED_ACTIONS)  # tuple in types.py; local list for set-membership msgs
 
-QUESTIONS = {
-    "action": {
-        "type": "choice",
-        "instructions": "Which single action should the rover take next?",
-        "criteria": {
-            "ADVANCE": "Move forward one step, into the space ahead.",
-            "TURN_LEFT": "Rotate 90 degrees counter-clockwise, in place.",
-            "TURN_RIGHT": "Rotate 90 degrees clockwise, in place.",
-            "RETREAT": "Move backward one step, away from the space ahead.",
-            "HALT": "Do not move. Reassess from the current position.",
-        },
-    },
-    "safe_to_proceed": {
-        "type": "noul",
-        "instructions": (
-            "Given the rover's surroundings, is it safe to move at all?"
-        ),
-        "criteria": {
-            "true": "The rover can move without sinking in water or hitting an obstacle.",
-            "false": "Any movement risks sinking in water or a collision.",
-        },
-    },
-}
+QUESTIONS = build_questions()
 
 
 def bar(prob: float, width: int = 24) -> str:

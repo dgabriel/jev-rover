@@ -197,18 +197,26 @@ and one-box-procured.
 
 ## Quickstart
 
-**Status:** Phase 0 — hardware ordered (`SunFounder PiCar-X`, Pi 5 1GB),
-Jev route established. The one live artifact is the Phase 0 acceptance
-test, which fires the real batched decision contract at the demo
-tie-breaker scene and validates the response shape:
+**Status:** Phase 1 mostly built — the simulator, the shared decision
+boundary (rules baseline / mock / OpenRouter backends), and the safety
+envelope all exist and pass tests. Remaining before hardware: the live
+Jev measurement pass (needs `OPENROUTER_API_KEY`).
 
 ```bash
 export OPENROUTER_API_KEY=...     # same key as cosmic-oracle's Worker
-uv run scripts/jev_smoke.py       # ~$0.00002/call; logs raw JSON to logs/
+uv run scripts/jev_smoke.py       # Phase 0: fire one pinned call, ~$0.00002
+
+uv run scripts/run_sim.py --scenario demo1                 # rules baseline
+uv run scripts/run_sim.py --scenario demo2 --compare       # rules vs mock, same world
+uv run scripts/run_sim.py --scenario demo1 --decider openrouter --live  # real Jev
+uv run --extra dev pytest          # contract + determinism tests
 ```
 
-Every raw call lands in `logs/jev-calls.jsonl` — that file becomes the
-τ-calibration dataset for the Phase 8 confidence cascade.
+Scenarios `demo1`/`demo1-reckless` and `demo2`/`demo2-naive` are the same
+worlds with different mission texts — the runtime-retasking demo in
+miniature. Every raw call lands in `logs/jev-calls.jsonl` and every tick
+in `logs/sim-runs.jsonl` — those two files are the τ-calibration dataset
+for the Phase 8 confidence cascade.
 
 ## Repository
 
@@ -216,28 +224,27 @@ Every raw call lands in `logs/jev-calls.jsonl` — that file becomes the
 
 ```text
 jev-rover/
+├── jevrover/
+│   ├── decision/      # ✓ types.py (Observation/Decision boundary),
+│   │                  #   rules.py (honest baseline), mock_jev.py,
+│   │                  #   openrouter.py (real client, single batched call)
+│   ├── simulator/     # ✓ world.py (seeded grid + honest sensor model),
+│   │                  #   scenarios.py (scripted demo scenes), runner.py
+│   └── safety.py      # ✓ deterministic veto envelope (brain side)
 ├── scripts/
-│   └── jev_smoke.py   # ✓ exists: Phase 0 acceptance test for the Jev route
-├── simulator/         # Phase 1: seeded grid world, same decision interface
-├── src/
-│   ├── perception/    # color masks, YOLO, ultrasonic
-│   ├── decision/      # Jev client, typed questions, confidence gate
-│   ├── cascade/       # escalation + narration tiers
-│   ├── mission/
-│   └── safety/
-├── mission-control/
-├── rover/             # Pi thin client
-├── logs/              # runtime-created; jev-calls.jsonl = τ data
-├── tests/
+│   ├── jev_smoke.py   # ✓ Phase 0 acceptance test for the Jev route
+│   └── run_sim.py     # ✓ episode CLI: --scenario/--decider/--compare
+├── rover/             # Phase 4-5: Pi thin client (/sense, /frame, /act)
+├── mission-control/   # Phase 6: live mission editor
+├── logs/              # runtime-only; gitignored. jev-calls + sim traces
+├── tests/             # ✓ contract, determinism, envelope vetoes
 ├── PLAN.md
 └── README.md
 ```
 
-(Only `scripts/`, `PLAN.md`, and this file exist today — the rest grows
-in phase order. See PLAN.md.)
-
 The most important architectural requirement is that the **simulator and
-physical rover use the same decision interface**.
+physical rover use the same decision interface** — `Observation` in,
+`Decision` out, from every backend.
 
 ## References & prior art
 
