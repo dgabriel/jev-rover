@@ -132,17 +132,35 @@ intellectual payload but not required for a working demo.
 
 **Difficulty:** trivial to execute, long-lead. Do first.
 
-Hardware (unchanged):
+Hardware (revised 2026-06 — kit-based; the DIY mix-and-match route
+died with the spare Pi. Chosen after live stock checks: no robot
+chassis/drivers stocked at Micro Center Brooklyn, Elegoo robot car
+sold out there too):
 
-- Raspberry Pi 4 or 5 (onboard wifi — no wifi hat needed)
-- 2WD differential-drive chassis kit with TT motors, or CamJam EduKit #3
-- Motor driver: TB6612FNG or DRV8833 (avoid bare L298N)
-- USB webcam (dodges CSI connector variants entirely)
-- HC-SR04 ultrasonic ×1–3
-- 4×AA pack for motors + USB power bank for the Pi (**never** power
-  motors from the Pi's 5V rail — brownouts look exactly like software
-  bugs)
-- Jumper wires, breadboard, microSD
+- **SunFounder PiCar-X** (Amazon ASIN B0CGLPF29H, $89.99) — one box:
+  aluminum chassis, steering servo + 2 drive motors, Robot HAT (motor
+  driver + power), 2×18650 batteries **included**, 5MP camera on a
+  pan/tilt head, ultrasonic sensor, onboard speaker + mic (earned in
+  Phase 9 — the rover talks), line sensors. **Pi NOT included.**
+- **Raspberry Pi 5 8GB** (Micro Center Brooklyn, SKU 635649, $79.99,
+  in stock, in-store pickup only). Same shelf: 16GB $99.99, Pi 4 4GB
+  ≈$55. Skip Zero-class boards — the thin client deserves headroom.
+- 32GB microSD (~$9) + official 27W PSU (~$12) for bench dev — on the
+  rover the Robot HAT powers the Pi from the 18650 pack. The "never
+  power motors from the Pi's own rail" rule survives: one pack, but
+  through the HAT's regulation.
+- Total ≈ **$180**: one Amazon order + one MC trip, zero scrounging.
+
+Fallbacks if the PiCar-X sells out: Freenove 4WD Smart Car ($69.95 +
+~$18 for 18650s/charger — best docs, differential drive matches sim
+turn semantics exactly, no speaker) or the PiCar-X + Zero 2 W bundle
+($134.99 — most OOTB possible, sluggish but a sufficient thin client).
+
+Kit caveats (from reviews): plastic rivets, fiddly camera cable, stale
+install scripts — use the latest online docs (picar-x-v20.rtfd.io) and
+Pi OS Bookworm 64-bit. We lift their `robot_hat` library as the
+hardware layer under `/act` + `/sense` and ignore their app stack
+entirely.
 
 Access:
 
@@ -232,11 +250,15 @@ data, with the measurement notes saved (they're demo material).
 
 1. Pi headless setup: Imager with wifi creds + ssh preloaded;
    `jev-rover.local` via mDNS.
-2. Chassis + motor wiring; drive forward/back/turn squares. Separate
-   motor battery, common ground.
-3. Ultrasonic: distances vs. a hand.
-4. Webcam: frames; blue/red HSV masks calibrated under demo lighting,
-   hard-coded ranges.
+2. Robot HAT + drivetrain: forward/back and steering arcs. PiCar-X
+   has a steering servo, not differential drive — TURN_* actions are
+   arcs, not spins; calibrate against sim step semantics before
+   trusting the mat. Load-test here: full drive + camera must not
+   brown out the Pi (the 18650 pack feeds both through the HAT).
+3. Ultrasonic on the pan/tilt head: distances vs. a hand, swept
+   across the arc (buys `pathLeft/Ahead/RightBlocked` for free).
+4. Kit camera: frames; blue/red HSV masks calibrated under demo
+   lighting, hard-coded ranges.
 
 **Done when:** four bench scripts pass: motors, distance, frame, masks.
 
@@ -313,8 +335,9 @@ never endanger the main course.
 
 - **Persona narrator**: mission carries a persona line; a generative
   tier (or templates) turns the decision + probabilities into spoken
-  monologue. Two-voice robot: Jev is the reflexes, the narrator is the
-  inner critic. *"TURN_LEFT, 0.62. The bottle could be water. It could
+  monologue, routed through the kit's onboard speaker — the rover
+  voices its own decisions. Two-voice robot: Jev is the reflexes, the
+  narrator is the inner critic. *"TURN_LEFT, 0.62. The bottle could be water. It could
   also be a trap."*
 - **QR wall-voices**: `pyzbar` (zero-CV text channel) drops untrusted
   strings into `state`. Instant physical prompt-injection demo —
@@ -350,7 +373,7 @@ never endanger the main course.
 | Jev overconfidence | τ from our own logs; envelope vetoes; low-confidence → HALT is the minimal cascade |
 | No free API credits surprise | Phase 0 access step; OpenRouter route documented |
 | API/wifi dies mid-demo | local open model → mock mode → recorded video (ordered fallback) |
-| Motor brownout | separate motor power, day one |
+| Motor brownout | kit HAT feeds Pi + motors from one 18650 pack; load-test in Phase 4 |
 | YOLO flags everything/nothing | area threshold; blue-cap fallback |
 | Demo lighting breaks masks | calibrate in demo space, hard-code ranges |
 | Audience: "an `if` could do that" | yes, and Phase 8 shows exactly where, with our own numbers |

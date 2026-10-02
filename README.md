@@ -172,12 +172,14 @@ Development starts entirely in simulation, against the same decision
 interface the physical rover will use. Once behavior is useful in
 simulation, the brain is pointed at the hardware unchanged:
 
-- Raspberry Pi (thin client: `/sense`, `/frame`, `/act`)
-- USB webcam + trivial CV (HSV color masks; pretrained YOLO for bottles)
-- HC-SR04 ultrasonic for obstacle truth
-- Motor driver + two-wheel differential-drive chassis
+- SunFounder PiCar-X as the platform — chassis, drive, power, pan/tilt
+  camera, ultrasonic, and a speaker in one box — with a Raspberry Pi 5
+  as the thin client (`/sense`, `/frame`, `/act`)
+- Kit camera + trivial CV (HSV color masks; pretrained YOLO for bottles)
+- Ultrasonic on the pan/tilt head for obstacle truth
 
-The physical rover stays extremely small and inexpensive.
+The physical rover stays extremely small, inexpensive, and
+one-box-procured.
 **Full phased plan, shopping list, and fallback ladders: [PLAN.md](PLAN.md).**
 
 ## Repository
